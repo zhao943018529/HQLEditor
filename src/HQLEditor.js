@@ -1,5 +1,7 @@
 import React from 'react';
 import _ from 'lodash';
+
+import Tooltip from './Tooltip';
 import "./index.scss";
 
 const defaultColor = "#000000";
@@ -10,27 +12,61 @@ const keywordColor = "#ff8500";
 const valueColor = "#6bb359";
 const wrongColor = "#D50000";
 
+const fields = [{
+    name: 'src_ip',
+    type: 'string'
+}, {
+    name: 'src_port',
+    type: 'number'
+}, {
+    name: 'dst_ip',
+    type: 'string'
+}, {
+    name: 'dst_port',
+    type: 'number'
+}];
+
+const PARENTHESES = "parentheses";
+const CONDITION = "condition";
+const FIELD = "field";
+const FIELDVALUE = "fieldvalue";
+const KEYWORD = "keyword";
+const SPACE = "space";
+const SYNTAXERROR = "syntaxerror";
+
 export default class HQLEditor extends React.Component {
     constructor(props) {
         super(props);
 
         this.state = {
             value: "",
+            tips:[],
         }
         this.editorRef = React.createRef();
         this.handleInput = this.handleInput.bind(this);
+        this.pickTip = this.pickTip.bind(this);
+        // this.recordPosition = this.recordPosition.bind(this);
+        this.parseData=null;
+
+        this.clientX=0;
+        this.clientY=0;
+    }
+
+    componentDidMount() {
+        this.recordPosition();
     }
 
     componentDidUpdate() {
         this.applyStyle();
         this.adjustCursor();
+        this.recordPosition();
     }
 
     adjustCursor() {
         let selection = document.getSelection();
         selection.removeAllRanges();
         let range = document.createRange();
-        let editor=this.editorRef.current;
+        let editor = this.editorRef.current;
         range.selectNodeContents(editor);
         selection.addRange(range);
         selection.collapseToEnd();
@@ -38,12 +74,12 @@ export default class HQLEditor extends React.Component {
     }
 
     applyStyle() {
-        if (this.state.value.length > 0) {
+        let parseData = this.parseData;
+        if (parseData.length > 0) {
             let range = document.createRange();
             let editorElement = this.editorRef.current;
-            let statistics = parseStr(this.state.value);
-            for (let i = statistics.length - 1; i >= 0; --i) {
-                applyStyle(statistics[i], editorElement, range);
+            for (let i = parseData.length - 1; i >= 0; --i) {
+                applyStyle(parseData[i], editorElement, range);
             }
             range.detach();
         }
@@ -52,10 +88,53 @@ export default class HQLEditor extends React.Component {
     handleInput(event) {
         let editor = this.editorRef.current;
         let value = editor.textContent.replace(/\u00a0/g, " ");
+        let parseData = parseStr(value);
+        let tips = [];
+        if (parseData.length > 0) {
+            let last = parseData[parseData.length - 1];
+            if (last.type === FIELD && last.end === value.length - 1) {
+                tips = _.filter(fields, field => last.value.length < field.name.length && field.name.indexOf(last.value) !== -1);
+            }
+        }
+        this.parseData=parseData;
+
         this.setState({
-            key: _.uniqueId('richText'),
             value: value,
+            tips: tips,
         });
+    }
+
+    pickTip(item) {
+        let parseData = this.parseData;
+        if (parseData.length > 0) {
+            let last = parseData[parseData.length - 1];
+            let value = this.state.value;
+            let name = item.name;
+            if (last.type === FIELD && last.end == value.length - 1) {
+                value = value.substring(0, last.start) + name;
+                last.end = value.length - 1;
+                last.value = name;
+                last.color = item.type === "number" ? NumberFieldColor : StringFieldColor;
+                this.setState({
+                    value: value,
+                    tips: [],
+                });
+            }
+        }
+    }
+
+    recordPosition(event) {
+        let editor = this.editorRef.current;
+        let child = editor.lastElementChild;
+        let rect;
+        if (child) {
+            rect = child.getBoundingClientRect();
+            this.clientY = rect.top + rect.height;
+        } else {
+            rect = editor.getBoundingClientRect();
+            this.clientY = rect.top + 24;
+        }
+        this.clientX = rect.left;
     }
 
     render() {
@@ -70,31 +149,11 @@ export default class HQLEditor extends React.Component {
                 >
                     {this.state.value}
                 </div>
+                {this.state.tips.length > 0 ? <Tooltip options={this.state.tips} pickTip={this.pickTip} left={this.clientX} top={this.clientY}/> : undefined}
             </div>
         );
     }
 }
-
-const PARENTHESES = "parentheses";
-const CONDITION = "condition";
-const FIELD = "field";
-const FIELDVALUE = "fieldvalue";
-const KEYWORD = "keyword";
-const SPACE = "space";
-const SYNTAXERROR = "syntaxerror";
-const fields = [{
-    name: 'src_ip',
-    type: 'string'
-}, {
-    name: 'src_port',
-    type: 'number'
-}, {
-    name: 'dst_ip',
-    type: 'string'
-}, {
-    name: 'dst_port',
-    type: 'number'
-}];
 
 function getFieldByName(name) {
     return _.find(fields, function (item) {
