@@ -54,10 +54,10 @@ export default class SuperHQLEditor extends React.Component {
         this.codeRef = React.createRef();
         this.cursorRef = React.createRef();
 
-        this.state={
-            editorState:'',
-            x:0,
-            y:0,
+        this.state = {
+            editorState: '',
+            x: 0,
+            y: 0,
         };
 
         this.hightLightInstance = new hightLight([
@@ -71,15 +71,16 @@ export default class SuperHQLEditor extends React.Component {
                 type: FIELD,
                 group: [
                     {
-                        filters: _.filter(fields, field => field.type === 'string').map(field=>field.name),
+                        filters: _.filter(fields, field => field.type === 'string').map(field => field.name),
                         color: "#2196F3"
                     },
                     {
-                        filters: _.filter(fields, field => field.type === 'number').map(field=>field.name),
+                        filters: _.filter(fields, field => field.type === 'number').map(field => field.name),
                         color: "#673AB7"
                     }
                 ],
-            }, {
+            },
+            {
                 type: CONDITION,
                 group: [{
                     filters: [],
@@ -105,8 +106,8 @@ export default class SuperHQLEditor extends React.Component {
         this.handleKeyUp = this.handleKeyUp.bind(this);
         this.handleMouseDown = this.handleMouseDown.bind(this);
         this.handlePaste = this.handlePaste.bind(this);
-        this.defaultX=0;
-        this.defaultY=0;
+        this.defaultX = 0;
+        this.defaultY = 0;
     }
 
     componentDidMount() {
@@ -118,7 +119,7 @@ export default class SuperHQLEditor extends React.Component {
             let content = this.codeRef.current;
             if (content) {
                 this.setState({
-                    editorState: content.textContent,
+                    editorState: content.textContent.replace(/\u200B/g,''),
                     x: position && position.x || this.defaultX,
                     y: position && position.y || this.defaultY,
                 });
@@ -135,7 +136,7 @@ export default class SuperHQLEditor extends React.Component {
         });
     }
 
-    componentWillUnmount(){
+    componentWillUnmount() {
         this.tooltipInstance.destroy();
     }
 
@@ -143,13 +144,11 @@ export default class SuperHQLEditor extends React.Component {
         let cursor = this.cursorRef.current;
         let content = this.codeRef.current;
         let selection = document.getSelection();
-        if (content.children.length > 0) {
-            let position = getCursor(selection, selection.focusNode, selection.focusOffset);
-            this.setState({
-                x: position && position.x || this.defaultX,
-                y: position && position.y || this.defaultY,
-            });
-        }
+        let position = getCursor(selection, selection.focusNode, selection.focusOffset);
+        this.setState({
+            x: position && position.x || this.defaultX,
+            y: position && position.y || this.defaultY,
+        });
     }
 
     handleKeyDown(event) {
@@ -160,7 +159,7 @@ export default class SuperHQLEditor extends React.Component {
     handleKeyUp(event) {
         let current = this.codeRef.current;
         let selection = document.getSelection();
-        let isEmpty = current.children.length === 0;
+        let isEmpty = this.state.editorState.length === 0;
         let position;
         switch (event.keyCode) {
             case KeyCode.Ctr:
@@ -169,28 +168,25 @@ export default class SuperHQLEditor extends React.Component {
             case KeyCode.Backspace:
             case KeyCode.Del:
                 if (!isEmpty) {
-                    position = resetSection(selection, current, '');
+                    resetSelection(selection, current, '');
+                    position = getCursor(selection, selection.focusNode, selection.focusOffset);
+                    this.setState({
+                        editorState: current.textContent.replace(/\u200B/g,''),
+                        x: position && position.x || this.defaultX,
+                        y: position && position.y || this.defaultY,
+                    });
                 }
-                this.setState({
-                    editorState: current.textContent,
-                    x: position && position.x || this.defaultX,
-                    y: position && position.y || this.defaultY,
-                });
                 break;
             default:
                 if (isEmpty) {
-                    let result = parser(event.key);
-                    let ele = document.createElement('span');
-                    ele.textContent = event.key;
-                    ele.dataset['type'] = result[0].type;
-                    current.appendChild(ele);
-                    select(selection, ele.firstChild, 1, ele.firstChild, 1);
-                    position = getCursor(selection, ele.firstChild, 1);
+                    dealWithEmpty(selection, current, event.key);
                 } else {
-                    position = resetSection(selection, current, event.key);
+                    resetSelection(selection, current, event.key);
                 }
+                position = getCursor(selection, selection.focusNode, selection.focusOffset);
+
                 this.setState({
-                    editorState: current.textContent,
+                    editorState: current.textContent.replace(/\u200B/g,''),
                     x: position && position.x || this.defaultX,
                     y: position && position.y || this.defaultY,
                 });
@@ -198,17 +194,26 @@ export default class SuperHQLEditor extends React.Component {
         }
     }
 
-    handlePaste(event){
+    handlePaste(event) {
         let current = this.codeRef.current;
         let clipboardData = event.clipboardData
         let copyText = clipboardData.getData("text");
-        let selection =document.getSelection();
-        let position = resetSection(selection, current, copyText);
-        this.setState({
-            editorState: current.textContent,
-            x: position && position.x || this.defaultX,
-            y: position && position.y || this.defaultY,
-        });
+        if (copyText.length > 0) {
+            let position;
+            let selection = document.getSelection();
+            if (this.state.editorState.length === 0) {
+                dealWithEmpty(selection, current, copyText);
+            } else {
+                resetSelection(selection, current, copyText)
+            }
+            position = getCursor(selection, selection.focusNode, selection.focusOffset);
+
+            this.setState({
+                editorState: current.textContent.replace(/\u200B/g,''),
+                x: position && position.x || this.defaultX,
+                y: position && position.y || this.defaultY,
+            });
+        }
     }
 
     render() {
@@ -222,11 +227,8 @@ export default class SuperHQLEditor extends React.Component {
                 onClick={this.handleMouseDown}
                 onPaste={this.handlePaste}
             >
-                <div
-                    className="code-content"
-                    ref={this.codeRef}
-                >
-
+                <div className="code-content">
+                    <span ref={this.codeRef}>&#8203;</span>
                 </div>
                 <div ref={this.cursorRef} style={{ left: this.state.x + "px", top: this.state.y + "px" }} className="code-cursor"></div>
             </div>
@@ -234,14 +236,34 @@ export default class SuperHQLEditor extends React.Component {
     }
 }
 
+function dealWithEmpty(selection, container, text) {
+    let result = parser(text);
+    function append(node) {
+        return function (item) {
+            let span = document.createElement('span');
+            span.dataset['type'] = item.type;
+            span.textContent = item.value;
+            node.appendChild(span);
+        }
+    }
+    result.forEach(append(container));
+    let lastTextNode = container.lastElementChild.firstChild;
+    let pos = lastTextNode.textContent.length;
+    select(selection, lastTextNode, pos, lastTextNode, pos);
+}
+
 function parser(str) {
     str = str.replace(/\u00a0/g, " ");
     let metaData = [];
     for (let i = 0; i < str.length;) {
-        let j = i + 1;
-        switch (str[i]) {
+        let j = i;
+        while (j < str.length && str[j] == ' ') {
+            ++j;
+        }
+        switch (str[j]) {
             case '(':
             case ')':
+                ++j;
                 metaData.push({
                     type: PARENTHESES,
                     value: str.slice(i, j),
@@ -250,6 +272,7 @@ function parser(str) {
                 });
                 break;
             case '=':
+                ++j;
                 metaData.push({
                     type: CONDITION,
                     value: str.slice(i, j),
@@ -259,7 +282,7 @@ function parser(str) {
                 break;
             case '>':
             case '<':
-                if (j < str.length && str[j] === '=')++j;
+                if (++j < str.length && str[j] === '=')++j;
                 metaData.push({
                     type: CONDITION,
                     value: str.slice(i, j),
@@ -268,9 +291,6 @@ function parser(str) {
                 });
                 break;
             default:
-                while (j < str.length && str[j] === " ") {
-                    ++j;
-                }
                 while (j < str.length && !/[()<=>\s]/.test(str[j])) {
                     ++j;
                 }
@@ -304,7 +324,7 @@ function getType(str) {
     }
 }
 
-function resetSection(selection, container, str) {
+function resetSelection(selection, container, str) {
     let focusNode = selection.focusNode;
     let anchorNode = selection.anchorNode;
     let start;
@@ -346,19 +366,17 @@ function resetSection(selection, container, str) {
         let previousElementSibling = parentElement.previousElementSibling;
         container.removeChild(parentElement);
         if (previousElementSibling) {
-            return getCursor(selection, previousElementSibling.firstChild, previousElementSibling.textContent.length);
-        }      
+            let textNode = previousElementSibling.firstChild;
+            let pos = textNode.textContent.length;
+            select(selection, textNode, pos, textNode, pos);
+        } else {
+            select(selection, container.firstChild, 1, container.firstChild, 1);
+        }
     } else {
         let elem = start.parentElement;
-        let elements = [elem];
         elem.dataset['type'] = result[0].type;
         elem.textContent = result[0].value;
-        // let html="";
-        // for (let i = 1; i < result.length; ++i) {
-        //     let item=result[i];
-        //     html+=`<span data-type="${item.type}">${item.value}</span>`;
-        // }
-        // elem.insertAdjacentHTML('afterend',html);
+        let elements = [elem];
         for (let i = 1; i < result.length; ++i) {
             let item = document.createElement('span');
             item.dataset['type'] = result[i].type;
@@ -372,8 +390,6 @@ function resetSection(selection, container, str) {
         let target = elements[index];
         let pos = startOffset - result[index].start;
         select(selection, target.firstChild, pos, target.firstChild, pos);
-
-        return getCursor(selection, target.firstChild, pos);       
     }
 }
 
@@ -390,7 +406,7 @@ function getCursor(selection, target, pos) {
     range.detach();
     range = null;
     element.normalize();
-    selection.extend(element.firstChild,pos);
+    selection.extend(element.firstChild, pos);
 
     return {
         x: left,
@@ -400,12 +416,12 @@ function getCursor(selection, target, pos) {
 
 function select(selection, start, startOffset, end, endOffset) {
     let range = document.createRange();
-    range.setStart(start,startOffset);
-    range.setEnd(end,endOffset);
+    range.setStart(start, startOffset);
+    range.setEnd(end, endOffset);
     selection.removeAllRanges();
     selection.addRange(range);
     range.detach();
-    range=null;
+    range = null;
 }
 
 function hightLight(config, defaultColor, wrongColor) {
@@ -416,7 +432,7 @@ function hightLight(config, defaultColor, wrongColor) {
 }
 
 hightLight.prototype.update = function (elem) {
-    if(!elem)return;
+    if (!elem) return;
     let elements = elem.children;
     for (let i = 0; i < elements.length; ++i) {
         this.changeStyle(elements[i]);
@@ -449,7 +465,7 @@ hightLight.prototype.initialize = function (config) {
         }
         let item = this.metaData[curr.type];
         if (!item.group) item.group = [];
-        _.forEach(curr.group,g=>{
+        _.forEach(curr.group, g => {
             item.group.push({
                 filters: g.filters,
                 color: g.color,
@@ -458,8 +474,8 @@ hightLight.prototype.initialize = function (config) {
     }
 }
 
-function tooltip(mount,fields, pick) {
-    this.mount=mount;
+function tooltip(mount, fields, pick) {
+    this.mount = mount;
     this.modal = null;
     this.fields = fields;
     this.isExpand = false;
@@ -470,8 +486,8 @@ function tooltip(mount,fields, pick) {
         event.stopPropagation();
         let content = this.modal.firstElementChild;
         let target = event.target;
-        while(target.className!=="tooltip-item"){
-            target=target.parentElement;
+        while (target.className !== "tooltip-item") {
+            target = target.parentElement;
         }
         let index = parseInt(target.dataset['index']);
         let field = this.matches[index];
@@ -493,53 +509,56 @@ function tooltip(mount,fields, pick) {
     this.initialize();
 }
 
-tooltip.prototype.destroy=function(){
+tooltip.prototype.destroy = function () {
     let content = this.modal.firstElementChild;
-    content.removeEventListener('click',this.callback);
+    content.removeEventListener('click', this.callback);
     this.modal.parentElement.removeChild(this.modal);
 }
 
-tooltip.prototype.initialize=function(){
+tooltip.prototype.initialize = function () {
     tooltip = document.createElement('div');
-    tooltip.id=tooltipId;
-    tooltip.className="editor-tooltip";
-    tooltip.style.display="none";
-    tooltip.innerHTML=`<ul class=\"tooltip-content\" />`;
+    tooltip.id = tooltipId;
+    tooltip.className = "editor-tooltip";
+    tooltip.style.display = "none";
+    tooltip.innerHTML = `<ul class=\"tooltip-content\" />`;
     this.mount.appendChild(tooltip);
-    this.modal=tooltip;
+    this.modal = tooltip;
     this.register();
 }
 
-tooltip.prototype.update=function(position){
+tooltip.prototype.update = function (position) {
     let selection = document.getSelection();
-    if(selection.isCollapsed){
+    if (selection.isCollapsed) {
         let focusNode = selection.focusNode;
-        if(focusNode.nodeType===3)focusNode = focusNode.parentElement;
+        if (focusNode.nodeType === 3) focusNode = focusNode.parentElement;
         let type = focusNode.dataset['type'];
-        if(type===FIELD){
+        if (type === FIELD) {
             this.focusNode = focusNode;
             let fieldName = focusNode.textContent.trim();
-            let matches = _.filter(this.fields, field => fieldName.length < field.name.length && field.name.indexOf(fieldName) !== -1)||[];
-            if(matches.length>0){
-                this.matches=matches;
+            if (fieldName.length === 0) return;
+            let matches = _.filter(this.fields, field => fieldName.length < field.name.length && field.name.indexOf(fieldName) !== -1) || [];
+            if (matches.length > 0) {
+                this.modal.style.left = position.x + "px";
+                this.modal.style.top = position.y + "px";
+                this.matches = matches;
                 this.generate();
                 this.show();
-            }else{
-                this.matches=[];
+            } else {
+                this.matches = [];
                 this.hide();
             }
-        }else{
+        } else {
             this.hide();
         }
-    }else{
+    } else {
         this.hide();
     }
 }
 
-tooltip.prototype.show=function(){
-    if(!this.isExpand){
-        this.modal.style.display="block";
-        this.isExpand=true;
+tooltip.prototype.show = function () {
+    if (!this.isExpand) {
+        this.modal.style.display = "block";
+        this.isExpand = true;
     }
 }
 
@@ -563,7 +582,7 @@ tooltip.prototype.generate = function () {
     this.modal.firstElementChild.innerHTML = html;
 }
 
-tooltip.prototype.register=function(){
+tooltip.prototype.register = function () {
     let content = this.modal.firstElementChild;
-    content.addEventListener('click',this.callback);
+    content.addEventListener('click', this.callback);
 }
