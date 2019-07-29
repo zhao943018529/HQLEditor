@@ -335,7 +335,7 @@ function resetSection(selection, container, str) {
     let text = start.textContent.slice(0, startOffset) + str + end.textContent.slice(endOffset);
     let sElem = start.parentElement;
     let lElem = end.parentElement;
-    while (lElem !== sElem) {
+    while (lElem && lElem !== sElem) {
         let tmp = lElem.previousElementSibling;
         container.removeChild(lElem);
         lElem = tmp;
