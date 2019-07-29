@@ -70,7 +70,7 @@ export default class HQLEditor extends React.Component {
         range.selectNodeContents(editor);
         selection.addRange(range);
         selection.collapseToEnd();
-        range.detach();
+        range.detach(); 
     }
 
     applyStyle() {
@@ -210,7 +210,9 @@ function parseStr(str) {
                     }
                     word = str.substr(i, j - i);
                     let field = getFieldByName(word);
+                    let valueType="unknow";
                     if (field) {
+                        valueType=field.type;
                         color = field.type === 'number' ? NumberFieldColor : StringFieldColor;
                     } else {
                         color = wrongColor;
@@ -220,6 +222,7 @@ function parseStr(str) {
                         start: i,
                         end: j - 1,
                         value: word,
+                        valueType: valueType,
                         color: color,
                     });
                 } else {
@@ -239,6 +242,7 @@ function parseStr(str) {
                                     let field = getFieldByName(word);
                                     type = FIELD;
                                     if (field) {
+                                        valueType=field.type;
                                         color = field.type === 'number' ? NumberFieldColor : StringFieldColor;
                                     } else {
                                         color = wrongColor;

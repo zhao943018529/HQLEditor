@@ -42,3 +42,42 @@ ul {
 .tooltip-description{
     color:#666;
 }
+
+.code-container{
+    width:80%;
+    padding: 10px;
+    min-height: 40px;
+    border:1px solid #666;
+    position: relative;
+    margin:60px auto;
+}
+
+.code-content{
+    width: 100%;
+    height: 100%;
+    white-space:pre;
+}
+
+.code-cursor {
+    position: absolute;
+    width: 2px;
+    height: 20px;
+    font-weight: normal;
+    background-color: #000000;
+    visibility: hidden;
+    .code-container:focus & {
+        visibility: visible;
+    }
+
+    animation: ani-cursor .5s linear infinite;
+}
+
+@keyframes ani-cursor {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
